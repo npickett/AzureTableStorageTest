@@ -46,7 +46,7 @@ namespace Web
             Session["PageData"] = pageData;
         }
 
-        protected IEnumerable<TableStorageOperationState> BeginInsertBatch()
+        protected void BeginInsertBatch(Action<IEnumerable<TableStorageOperationState>> action)
         {
             var ds = new TableDataSource<TableEntry>();
 
@@ -70,7 +70,7 @@ namespace Web
                 list.Add(new TableEntry(partitionKey, data));
             }
 
-            return ds.AddTableEntryAsync(list);
+            ds.AddTableEntryAsync(list, action);
         }
 
         public void OnTimeout(IAsyncResult ar)
@@ -83,12 +83,14 @@ namespace Web
 
         protected void btnRun_Click(object sender, EventArgs e)
         {
-            var stateData = this.BeginInsertBatch();
+            IEnumerable<TableStorageOperationState> stateData = null;
 
-            if (stateData != null)
-            {
-                pageData.ResultsList.AddRange(stateData);
-            }
+            this.BeginInsertBatch(delegate(IEnumerable<TableStorageOperationState> results){
+                if (results != null)
+                {
+                    pageData.ResultsList.AddRange(results);
+                }
+            });
         }
 
         // session state class

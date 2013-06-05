@@ -98,7 +98,86 @@ namespace Data
             return context;
         }
 
-        public IEnumerable<TableStorageOperationState> AddTableEntryAsync(List<T> entities) 
+        public async Task<TableStorageOperationState> AddTableEntryRequestAsync(IList<T> transactionGroup)
+        {
+            var context = CreateDataServiceContext();
+            context.MergeOption = MergeOption.AppendOnly;
+
+            foreach (var entity in transactionGroup)
+            {
+                context.AddObject(context.ContextTableName, entity);
+            }
+
+            var saveChangesOption = transactionGroup.Count > 1 ? SaveChangesOptions.Batch : SaveChangesOptions.None;
+
+            var state = new TableStorageOperationState();
+            var firstEntity = transactionGroup.First();
+
+            state.OperationType = "AddObject";
+            state.IsBatch = saveChangesOption == SaveChangesOptions.Batch ? true : false;
+
+            state.BatchCount = transactionGroup.Count;
+            state.PartitionKey = firstEntity.PartitionKey;
+
+            state.StartDate = DateTime.UtcNow;
+            state.StatusCode = (int)HttpStatusCode.InternalServerError;
+
+            try
+            {
+                DataServiceResponse response = await Task<DataServiceResponse>.Factory
+                    .FromAsync(context.BeginSaveChangesWithRetries, context.EndSaveChangesWithRetries, state);
+
+                state.IsSuccess = true;
+                state.StatusCode = (int)HttpStatusCode.OK;
+            }
+            catch (DataServiceRequestException e)
+            {
+                var inner = e.InnerException as DataServiceClientException;
+                if (inner != null)
+                {
+                    state.IsSuccess = false;
+                    state.ErrorCode = GetErrorCode(e);
+                    state.StatusCode = inner.StatusCode;
+                }
+            }
+            catch (Exception ex)
+            {
+                state.IsSuccess = false;
+                state.ErrorCode = ex.Message;
+            }
+            finally
+            {
+                state.EndDate = DateTime.UtcNow;
+                state.ElapsedTime = (state.EndDate - state.StartDate).TotalMilliseconds.ToString();
+                state.IsComplete = true;
+            }
+
+            return state;
+
+        }
+
+        public async void AddTableEntryAsync(List<T> entities, Action<IEnumerable<TableStorageOperationState>> resultCallback)
+        {
+            var inputList = Enumerable.Empty<IList<T>>();
+
+            inputList = entities.GroupAndSlice(Constants.MAX_ENTITY_TRANSACTION_COUNT, delegate(T entry1, T entry2)
+            {
+                if (entry1.PartitionKey == entry2.PartitionKey)
+                {
+                    return true;
+                }
+
+                return false;
+            });
+
+            IEnumerable<Task<TableStorageOperationState>> tasks = inputList.Select(AddTableEntryRequestAsync);
+            Task<TableStorageOperationState[]> allTasks = Task.WhenAll(tasks);
+
+            TableStorageOperationState[] taskResults = await allTasks;
+            resultCallback(taskResults);
+        }
+
+        public IEnumerable<TableStorageOperationState> AddTableEntryAsync(List<T> entities)
         {
             Stopwatch sw = new Stopwatch();
             sw.Start();
@@ -134,7 +213,7 @@ namespace Data
                     //state.Entries.Add(transactionGroup);
                     state.BatchCount = transactionGroup.Count;
                     state.PartitionKey = firstEntity.PartitionKey;
-                                       
+
                     state.StartDate = DateTime.UtcNow;
                     state.StatusCode = (int)HttpStatusCode.InternalServerError;
 
@@ -230,27 +309,5 @@ namespace Data
             var match = r.Match(ex.InnerException.Message);
             return match.Groups[1].Value;
         }
-
-        public static IEnumerable<List<TItem>> Slice<TItem>(IEnumerable<TItem> source, int sliceLength)
-        {
-            if (source == null) throw new ArgumentNullException("source");
-            if (sliceLength <= 0)
-                throw new ArgumentOutOfRangeException("sliceLength", "value must be greater than 0");
-
-            var list = new List<TItem>(sliceLength);
-            foreach (var item in source)
-            {
-                list.Add(item);
-                if (sliceLength == list.Count)
-                {
-                    yield return list;
-                    list.Clear();
-                }
-            }
-
-            if (list.Count > 0)
-                yield return list;
-        }
-
     }
 }
