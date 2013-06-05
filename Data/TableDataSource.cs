@@ -177,131 +177,132 @@ namespace Data
             resultCallback(taskResults);
         }
 
-        public IEnumerable<TableStorageOperationState> AddTableEntryAsync(List<T> entities)
-        {
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
+        // Depreciated -- should use Task based Async method (AddTableEntryAsync(List<T> entities, Action<IEnumerable<TableStorageOperationState>> resultCallback)
+        //public IEnumerable<TableStorageOperationState> AddTableEntryAsync(List<T> entities)
+        //{
+        //    Stopwatch sw = new Stopwatch();
+        //    sw.Start();
 
-            List<List<T>> dataByPartitionList = entities.GroupBy(item => item.PartitionKey)
-                    .Select(group => new List<T>(group))
-                    .ToList();
+        //    List<List<T>> dataByPartitionList = entities.GroupBy(item => item.PartitionKey)
+        //            .Select(group => new List<T>(group))
+        //            .ToList();
 
-            var resultList = new List<IAsyncResult>();
-            var waitHandles = new List<WaitHandle>();
-            var stateList = new List<TableStorageOperationState>();
+        //    var resultList = new List<IAsyncResult>();
+        //    var waitHandles = new List<WaitHandle>();
+        //    var stateList = new List<TableStorageOperationState>();
 
-            foreach (var entityGroup in dataByPartitionList)
-            {
-                foreach (List<T> transactionGroup in Slice<T>(entityGroup, Constants.MAX_ENTITY_TRANSACTION_COUNT))
-                {
-                    var context = CreateDataServiceContext();
-                    context.MergeOption = MergeOption.AppendOnly;
+        //    foreach (var entityGroup in dataByPartitionList)
+        //    {
+        //        foreach (List<T> transactionGroup in Slice<T>(entityGroup, Constants.MAX_ENTITY_TRANSACTION_COUNT))
+        //        {
+        //            var context = CreateDataServiceContext();
+        //            context.MergeOption = MergeOption.AppendOnly;
 
-                    foreach (var entity in transactionGroup)
-                    {
-                        context.AddObject(context.ContextTableName, entity);
-                    }
+        //            foreach (var entity in transactionGroup)
+        //            {
+        //                context.AddObject(context.ContextTableName, entity);
+        //            }
 
-                    var saveChangesOption = entities.Count > 1 ? SaveChangesOptions.Batch : SaveChangesOptions.None;
+        //            var saveChangesOption = entities.Count > 1 ? SaveChangesOptions.Batch : SaveChangesOptions.None;
 
-                    var state = new TableStorageOperationState();
-                    var firstEntity = transactionGroup.First();
-                    //state.Entries = new List<object>();
+        //            var state = new TableStorageOperationState();
+        //            var firstEntity = transactionGroup.First();
+        //            state.Entries = new List<object>();
 
-                    state.OperationType = "AddObject";
-                    state.IsBatch = saveChangesOption == SaveChangesOptions.Batch ? true : false;
-                    //state.Entries.Add(transactionGroup);
-                    state.BatchCount = transactionGroup.Count;
-                    state.PartitionKey = firstEntity.PartitionKey;
+        //            state.OperationType = "AddObject";
+        //            state.IsBatch = saveChangesOption == SaveChangesOptions.Batch ? true : false;
+        //            state.Entries.Add(transactionGroup);
+        //            state.BatchCount = transactionGroup.Count;
+        //            state.PartitionKey = firstEntity.PartitionKey;
 
-                    state.StartDate = DateTime.UtcNow;
-                    state.StatusCode = (int)HttpStatusCode.InternalServerError;
+        //            state.StartDate = DateTime.UtcNow;
+        //            state.StatusCode = (int)HttpStatusCode.InternalServerError;
 
-                    var response = context.BeginSaveChangesWithRetries(saveChangesOption, (result) =>
-                    {
-                        CallbackData callbackData = null;
+        //            var response = context.BeginSaveChangesWithRetries(saveChangesOption, (result) =>
+        //            {
+        //                CallbackData callbackData = null;
 
-                        try
-                        {
-                            callbackData = (CallbackData)result.AsyncState;
-                            callbackData.Context.EndSaveChangesWithRetries(result);
+        //                try
+        //                {
+        //                    callbackData = (CallbackData)result.AsyncState;
+        //                    callbackData.Context.EndSaveChangesWithRetries(result);
 
-                            callbackData.State.IsSuccess = true;
-                            callbackData.State.StatusCode = (int)HttpStatusCode.OK;
-                        }
-                        catch (DataServiceRequestException e)
-                        {
+        //                    callbackData.State.IsSuccess = true;
+        //                    callbackData.State.StatusCode = (int)HttpStatusCode.OK;
+        //                }
+        //                catch (DataServiceRequestException e)
+        //                {
 
-                            var inner = e.InnerException as DataServiceClientException;
-                            if (inner != null)
-                            {
-                                callbackData.State.IsSuccess = false;
-                                callbackData.State.ErrorCode = GetErrorCode(e);
-                                callbackData.State.StatusCode = inner.StatusCode;
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            callbackData.State.IsSuccess = false;
-                            callbackData.State.ErrorCode = ex.Message;
-                        }
-                        finally
-                        {
-                            callbackData.State.EndDate = DateTime.UtcNow;
-                            callbackData.State.ElapsedTime = (callbackData.State.EndDate - callbackData.State.StartDate).TotalMilliseconds.ToString();
-                            callbackData.State.IsComplete = true;
-                        }
-                    }
-                    , new CallbackData { Context = context, State = state });
+        //                    var inner = e.InnerException as DataServiceClientException;
+        //                    if (inner != null)
+        //                    {
+        //                        callbackData.State.IsSuccess = false;
+        //                        callbackData.State.ErrorCode = GetErrorCode(e);
+        //                        callbackData.State.StatusCode = inner.StatusCode;
+        //                    }
+        //                }
+        //                catch (Exception ex)
+        //                {
+        //                    callbackData.State.IsSuccess = false;
+        //                    callbackData.State.ErrorCode = ex.Message;
+        //                }
+        //                finally
+        //                {
+        //                    callbackData.State.EndDate = DateTime.UtcNow;
+        //                    callbackData.State.ElapsedTime = (callbackData.State.EndDate - callbackData.State.StartDate).TotalMilliseconds.ToString();
+        //                    callbackData.State.IsComplete = true;
+        //                }
+        //            }
+        //            , new CallbackData { Context = context, State = state });
 
-                    resultList.Add(response);
-                    waitHandles.Add(response.AsyncWaitHandle);
+        //            resultList.Add(response);
+        //            waitHandles.Add(response.AsyncWaitHandle);
 
-                    if (waitHandles.Count >= WAIT_HANDLE_MAX)
-                    {
-                        if (WaitHandle.WaitAll(waitHandles.ToArray(), ASYNC_TIMEOUT, false))
-                        {
-                            foreach (IAsyncResult result in resultList)
-                            {
-                                var callbackState = result.AsyncState as CallbackData;
-                                stateList.Add(callbackState.State);
-                            }
-                        }
-                        else
-                        {
-                            stateList.Add(new TableStorageOperationState() { IsSuccess = false, ErrorCode = "Timeout" });
-                        }
+        //            if (waitHandles.Count >= WAIT_HANDLE_MAX)
+        //            {
+        //                if (WaitHandle.WaitAll(waitHandles.ToArray(), ASYNC_TIMEOUT, false))
+        //                {
+        //                    foreach (IAsyncResult result in resultList)
+        //                    {
+        //                        var callbackState = result.AsyncState as CallbackData;
+        //                        stateList.Add(callbackState.State);
+        //                    }
+        //                }
+        //                else
+        //                {
+        //                    stateList.Add(new TableStorageOperationState() { IsSuccess = false, ErrorCode = "Timeout" });
+        //                }
 
-                        resultList.Clear();
-                        waitHandles.Clear();
-                    }
+        //                resultList.Clear();
+        //                waitHandles.Clear();
+        //            }
 
-                }
-            }
+        //        }
+        //    }
 
-            if (waitHandles.Count > 0)
-            {
-                if (WaitHandle.WaitAll(waitHandles.ToArray(), ASYNC_TIMEOUT, false))
-                {
-                    foreach (IAsyncResult result in resultList)
-                    {
-                        var callbackState = result.AsyncState as CallbackData;
-                        stateList.Add(callbackState.State);
-                    }
-                }
-                else
-                {
-                    stateList.Add(new TableStorageOperationState() { IsSuccess = false, ErrorCode = "Timeout" });
-                }
+        //    if (waitHandles.Count > 0)
+        //    {
+        //        if (WaitHandle.WaitAll(waitHandles.ToArray(), ASYNC_TIMEOUT, false))
+        //        {
+        //            foreach (IAsyncResult result in resultList)
+        //            {
+        //                var callbackState = result.AsyncState as CallbackData;
+        //                stateList.Add(callbackState.State);
+        //            }
+        //        }
+        //        else
+        //        {
+        //            stateList.Add(new TableStorageOperationState() { IsSuccess = false, ErrorCode = "Timeout" });
+        //        }
 
-                resultList.Clear();
-                waitHandles.Clear();
-            }
+        //        resultList.Clear();
+        //        waitHandles.Clear();
+        //    }
 
-            sw.Stop();
+        //    sw.Stop();
 
-            return stateList;
-        }
+        //    return stateList;
+        //}
 
         public static string GetErrorCode(DataServiceRequestException ex)
         {
