@@ -114,7 +114,7 @@ namespace Data
             var firstEntity = transactionGroup.First();
 
             state.OperationType = "AddObject";
-            state.IsBatch = saveChangesOption == SaveChangesOptions.Batch ? true : false;
+            state.IsBatch = saveChangesOption.HasFlag(SaveChangesOptions.Batch) ? true : false;
 
             state.BatchCount = transactionGroup.Count;
             state.PartitionKey = firstEntity.PartitionKey;
@@ -156,7 +156,7 @@ namespace Data
 
         }
 
-        public async void AddTableEntryAsync(List<T> entities, Action<IEnumerable<TableStorageOperationState>> resultCallback)
+        public async void AddTableEntryAsync(IEnumerable<T> entities, Action<IEnumerable<TableStorageOperationState>> resultCallback)
         {
             var inputList = Enumerable.Empty<IList<T>>();
 
@@ -170,7 +170,14 @@ namespace Data
                 return false;
             });
 
-            IEnumerable<Task<TableStorageOperationState>> tasks = inputList.Select(AddTableEntryRequestAsync);
+            List<Task<TableStorageOperationState>> tasks = new List<Task<TableStorageOperationState>>();
+
+            foreach (List<T> item in inputList)
+            {
+                tasks.Add(AddTableEntryRequestAsync(item));
+            }
+
+            //IEnumerable<Task<TableStorageOperationState>> tasks = inputList.Select(AddTableEntryRequestAsync);
             Task<TableStorageOperationState[]> allTasks = Task.WhenAll(tasks);
 
             TableStorageOperationState[] taskResults = await allTasks;
