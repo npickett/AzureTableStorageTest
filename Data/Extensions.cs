@@ -13,7 +13,6 @@ namespace Data
             if (source == null || groupSize == 0)
                 yield break;
 
-            var wholeGroup = new List<T>();
             var singleGroup = new List<T>();
             var backlog = new Queue<IList<T>>();
 
@@ -34,8 +33,6 @@ namespace Data
                 }
 
                 singleGroup.Add(item);
-                if (allSame)
-                    wholeGroup.Add(item);
 
                 if (singleGroup.Count == groupSize)
                 {
@@ -50,8 +47,6 @@ namespace Data
 
             if (count == 0)
                 yield break;
-            else if (allSame && count % groupSize == 0)
-                yield return wholeGroup;
             else
             {
                 while (backlog.Any())
