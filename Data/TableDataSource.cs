@@ -125,8 +125,8 @@ namespace Data
             try
             {
                 DataServiceResponse response = await Task<DataServiceResponse>.Factory
-                    .FromAsync(context.BeginSaveChangesWithRetries, context.EndSaveChangesWithRetries, state);
-
+                    .FromAsync(context.BeginSaveChangesWithRetries(saveChangesOption, null, state), context.EndSaveChangesWithRetries);
+                    
                 state.IsSuccess = true;
                 state.StatusCode = (int)HttpStatusCode.OK;
             }
@@ -179,7 +179,7 @@ namespace Data
 
             //IEnumerable<Task<TableStorageOperationState>> tasks = inputList.Select(AddTableEntryRequestAsync);
             Task<TableStorageOperationState[]> allTasks = Task.WhenAll(tasks);
-
+            
             TableStorageOperationState[] taskResults = await allTasks;
             resultCallback(taskResults);
         }
