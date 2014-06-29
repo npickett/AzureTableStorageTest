@@ -18,6 +18,16 @@
         <asp:TextBox ID="txtEnteries" runat="server"></asp:TextBox>
     </div>
     <div>
+        <asp:Label ID="Label1" runat="server" Text="# of Partitions"></asp:Label>
+        &nbsp;&nbsp;
+        <asp:TextBox ID="txtPartitions" runat="server"></asp:TextBox>
+    </div>
+    <div>
+        <asp:Label ID="Label4" runat="server" Text="Throttle in milliseconds"></asp:Label>
+        &nbsp;&nbsp;
+        <asp:TextBox ID="txtThrottle" runat="server"></asp:TextBox>
+    </div>
+    <div>
         <asp:Label ID="Label3" runat="server" Text="Entry Size (bytes)"></asp:Label>
         &nbsp;&nbsp;
         <asp:TextBox ID="txtSize" runat="server"></asp:TextBox>

@@ -65,7 +65,7 @@ namespace Web
             for (int i = 0; i < enteries; i++)
             {
                 // Spread partition key into groups with the max entity transaction count
-                string partitionKey = Math.Ceiling((double)(i+1) / Data.Constants.MAX_ENTITY_TRANSACTION_COUNT).ToString();
+                string partitionKey = Math.Ceiling((double)(i+1) / (Data.Constants.MAX_ENTITY_TRANSACTION_COUNT * Convert.ToInt32(txtPartitions.Text))).ToString();
 
                 list.Add(new TableEntry(partitionKey, data));
             }
